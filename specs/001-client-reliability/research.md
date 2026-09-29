@@ -13,14 +13,14 @@
 ## Validation observations (2026-09-29)
 - CI initially passed its regression and wheel checks on both supported Python versions at c3eb8322.
 - Adding a strict dependency scan initially failed because the local fork distribution was not published on PyPI. The scan now excludes only the local distribution while auditing installed third-party packages from a frozen requirements snapshot.
-- That scan surfaced 35 advisory entries against resolved Pillow 11.3.0. setup.py now requires Pillow >=12.3.0,<13; both Python matrix audits, tests and artifact checks passed on commit 9e47e968 (Actions run 36547685955). This does not substitute for scanning future locked deployment environments.
+- That scan surfaced 35 advisory entries against resolved Pillow 11.3.0. setup.py now requires Pillow >=12.3.0,<13. The subsequent final baseline commit 04f0d69 passed 17 tests per Python version, strict third-party audit, wheel and sdist, installed-wheel smoke tests and Docker image build (Actions run 36548015112). This does not substitute for scanning future locked deployment environments.
 
 ## Open unknowns
 - Currently supported Kik client profile and genuine APK digest.
 - Legitimate device verification mechanism and whether this third-party client can complete it.
 - Which Kik-owned endpoint is valid for the authorised test account.
 - Compatibility of legacy account/session signing with current service.
-- CI dependency advisory outcome and actual test-run results until checks complete.
+- Review remediation on top of passing 04f0d69 requires independent final-head CI and approval; live compatibility remains unverified.
 
 ## Evidence policy
 Keep offline unit findings distinct from a live service receipt. A DNS result is not a login result. No undocumented guesses, attestation bypasses, fake receipts or secrets in the record.

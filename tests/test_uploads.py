@@ -1,4 +1,5 @@
 import unittest
+import requests
 from types import SimpleNamespace
 from unittest.mock import patch, Mock
 
@@ -21,6 +22,21 @@ class UploadTests(unittest.TestCase):
         with patch.object(profile_pictures, "get_file_bytes", return_value=b"picture"), \
              patch.object(profile_pictures.requests, "post", return_value=response) as post:
             with self.assertRaises(KikUploadError):
+                profile_pictures.picture_upload_thread("https://profilepicsup.kik.com/profilepics", b"picture", {})
+            self.assertEqual(post.call_count, 3)
+
+    def test_profile_transport_errors_retry_within_budget(self):
+        response = SimpleNamespace(status_code=200, reason="OK")
+        with patch.object(profile_pictures, "get_file_bytes", return_value=b"picture"), \
+             patch.object(profile_pictures.requests, "post",
+                          side_effect=[requests.Timeout("transient"), response]) as post:
+            profile_pictures.picture_upload_thread("https://profilepicsup.kik.com/profilepics", b"picture", {})
+            self.assertEqual(post.call_count, 2)
+
+        with patch.object(profile_pictures, "get_file_bytes", return_value=b"picture"), \
+             patch.object(profile_pictures.requests, "post",
+                          side_effect=requests.ConnectionError("transient")) as post:
+            with self.assertRaises(requests.ConnectionError):
                 profile_pictures.picture_upload_thread("https://profilepicsup.kik.com/profilepics", b"picture", {})
             self.assertEqual(post.call_count, 3)
 

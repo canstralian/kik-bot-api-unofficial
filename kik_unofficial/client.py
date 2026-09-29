@@ -109,6 +109,8 @@ class KikClient:
         self._shutdown_event = Event()
         self._server_backoff_seconds = 0
         self._last_connection_failure = None
+        self._reached_auth = False
+        self._planned_turnover = False
         self.connection_state = ConnectionState.STOPPED
 
         self.callback = callback
@@ -142,6 +144,8 @@ class KikClient:
         if getattr(self, "kik_connection_thread", None) and self.kik_connection_thread.is_alive():
             return
         self.connection_state = ConnectionState.CONNECTING
+        self._reached_auth = False
+        self._planned_turnover = False
         self.kik_connection_thread = Thread(target=self._kik_connection_thread_function, name="Kik Connection")
         self.kik_connection_thread.start()
 
@@ -149,23 +153,30 @@ class KikClient:
         """Supervise one connection and at most max_retries reconnections."""
         if not isinstance(max_retries, int) or max_retries < 0:
             raise ValueError("max_retries must be a nonnegative integer")
-        for attempt in range(max_retries + 1):
+        failures = 0
+        while True:
             self.kik_connection_thread.join()
-            if self.is_permanent_disconnection:
+            if self.is_permanent_disconnection or self._shutdown_event.is_set():
                 self.log.info("Connection supervisor stopped.")
                 return
-            if attempt == max_retries:
+            if self._planned_turnover:
+                # Anonymous login requires a planned new authenticated socket.
+                # This transition is not a transport failure.
+                self._connect()
+                continue
+            failures = 0 if self._reached_auth else failures + 1
+            if max_retries == 0 or failures > max_retries:
                 self.is_permanent_disconnection = True
                 self._shutdown_event.set()
                 self.connection_state = ConnectionState.TERMINAL
                 self.log.error("Connection retry budget exhausted.")
                 return
-            delay = retry_delay(attempt + 1, server_backoff=self._server_backoff_seconds)
+            delay = retry_delay(max(1, failures), server_backoff=self._server_backoff_seconds)
             self._server_backoff_seconds = 0
             self.connection_state = ConnectionState.BACKOFF
-            self.log.warning("Connection ended (%s); retry %d/%d in %.1fs",
+            self.log.warning("Connection ended (%s); consecutive failures %d/%d; retry in %.1fs",
                              self._last_connection_failure or "disconnected",
-                             attempt + 1, max_retries, delay)
+                             failures, max_retries, delay)
             if self._shutdown_event.wait(delay):
                 return
             self._connect()
@@ -198,6 +209,7 @@ class KikClient:
         self.kik_node = kik_node
         self._auth_deadline = None
         self.should_login_on_connection = False
+        self._planned_turnover = True
         self.log.info("Closing current connection and creating a new authenticated one.")
 
         self.disconnect(permanent=False)
@@ -825,6 +837,7 @@ class KikClient:
 
                 self.log.info("Authenticated successfully.")
                 self.authenticated = True
+                self._reached_auth = True
                 self._auth_deadline = None
                 self.connection_state = ConnectionState.AUTHENTICATED
                 if not self.disable_auth_cert:
