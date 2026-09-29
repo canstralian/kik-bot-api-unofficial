@@ -4,8 +4,8 @@ import asyncio
 import io
 import pathlib
 import ssl
+import socket
 import time
-import traceback
 from threading import Thread, Event
 from typing import Union, List
 from asyncio import StreamReader, StreamWriter
@@ -30,6 +30,8 @@ from kik_unofficial.datatypes.xmpp.base_elements import XMPPElement, XMPPRespons
 from kik_unofficial.http_requests import profile_pictures, content
 from kik_unofficial.utilities.credential_utilities import random_device_id, random_android_id
 from kik_unofficial.utilities.logging_utils import set_up_basic_logging
+from kik_unofficial.connection_policy import validate_endpoint, retry_delay, KikDisconnectedError
+from kik_unofficial.device_configuration import validate_kik_version_info, kik_version_info
 
 HOST, PORT = CryptographicUtils.get_kik_host_name(), 5223
 
@@ -46,11 +48,17 @@ class KikClient:
         kik_password: str,
         kik_node: str = None,
         device_id: str = None,
-        android_id: str = random_android_id(),
+        android_id: str = None,
         log_level: int = 20,
         enable_console_logging: bool = False,
         log_file_path: str = None,
         disable_auth_cert: bool = True,
+        host: str = None,
+        port: int = 5223,
+        connect_timeout: float = 10.0,
+        initial_response_timeout: float = 15.0,
+        login_response_timeout: float = 20.0,
+        message_wait_timeout: float = 20.0,
     ) -> None:
         """
         Initializes a connection to Kik servers.
@@ -81,7 +89,26 @@ class KikClient:
         self.kik_node = kik_node
         self.kik_email = None
         self.device_id = device_id
-        self.android_id = android_id
+        self.android_id = android_id or random_android_id()
+        # Profile shape is checked; this does not establish live compatibility.
+        validate_kik_version_info(kik_version_info)
+        self.host, self.port = validate_endpoint(host or HOST, port)
+        for name, value in (
+            ("connect_timeout", connect_timeout),
+            ("initial_response_timeout", initial_response_timeout),
+            ("login_response_timeout", login_response_timeout),
+            ("message_wait_timeout", message_wait_timeout),
+        ):
+            if not isinstance(value, (int, float)) or not 0 < value <= 3600:
+                raise ValueError(f"{name} must be in (0, 3600] seconds")
+        self.connect_timeout = float(connect_timeout)
+        self.initial_response_timeout = float(initial_response_timeout)
+        self.login_response_timeout = float(login_response_timeout)
+        self.message_wait_timeout = float(message_wait_timeout)
+        self._auth_deadline = None
+        self._shutdown_event = Event()
+        self._server_backoff_seconds = 0
+        self._last_connection_failure = None
 
         self.callback = callback
         if self.callback:
@@ -111,17 +138,33 @@ class KikClient:
         if self.is_permanent_disconnection:
             self.log.debug("Permanent disconnection, ignoring connect attempt")
             return
+        if getattr(self, "kik_connection_thread", None) and self.kik_connection_thread.is_alive():
+            return
         self.kik_connection_thread = Thread(target=self._kik_connection_thread_function, name="Kik Connection")
         self.kik_connection_thread.start()
 
     def wait_for_messages(self, max_retries: int = 5):
-        for _ in range(max_retries):
+        """Supervise one connection and at most max_retries reconnections."""
+        if not isinstance(max_retries, int) or max_retries < 0:
+            raise ValueError("max_retries must be a nonnegative integer")
+        for attempt in range(max_retries + 1):
             self.kik_connection_thread.join()
             if self.is_permanent_disconnection:
-                self.log.info("Permanent disconnect, exiting...")
-                break
-            self.log.info("Connection has disconnected, trying again...")
-            time.sleep(2)
+                self.log.info("Connection supervisor stopped.")
+                return
+            if attempt == max_retries:
+                self.is_permanent_disconnection = True
+                self._shutdown_event.set()
+                self.log.error("Connection retry budget exhausted.")
+                return
+            delay = retry_delay(attempt + 1, server_backoff=self._server_backoff_seconds)
+            self._server_backoff_seconds = 0
+            self.log.warning("Connection ended (%s); retry %d/%d in %.1fs",
+                             self._last_connection_failure or "disconnected",
+                             attempt + 1, max_retries, delay)
+            if self._shutdown_event.wait(delay):
+                return
+            self._connect()
 
     def _on_connection_made(self):
         """
@@ -130,9 +173,7 @@ class KikClient:
         """
         if self.username and self.password and self.kik_node and self.device_id:
             # we have all required credentials, we can authenticate
-            self.log.info(
-                f"Establishing authenticated connection using kik node '{self.kik_node}', device id '{self.device_id}' and android id '{self.android_id}'..."
-            )
+            self.log.info("Establishing authenticated connection (credential details redacted).")
 
             message = login.EstablishAuthenticatedSessionRequest(self.kik_node, self.username, self.password, self.device_id)
         else:
@@ -151,6 +192,8 @@ class KikClient:
         :param kik_node: The user's kik node (everything before '@' in JID).
         """
         self.kik_node = kik_node
+        self._auth_deadline = None
+        self.should_login_on_connection = False
         self.log.info("Closing current connection and creating a new authenticated one.")
 
         self.disconnect(permanent=False)
@@ -168,7 +211,8 @@ class KikClient:
         self.password = password
         login_request = login.LoginRequest(username, password, captcha_result, self.device_id, self.android_id)
         login_type = "email" if "@" in self.username else "username"
-        self.log.info(f"Logging in with {login_type} '{username}' and a given password {'*' * len(password)}...")
+        self.log.info("Submitting login request (%s; credentials redacted).", login_type)
+        self._auth_deadline = time.monotonic() + self.login_response_timeout
         return self._send_xmpp_element(login_request)
 
     def register(self, email: str, username: str, password: str, first_name: str, last_name: str, birthday: str, captcha_result: str = None):
