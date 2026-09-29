@@ -33,10 +33,12 @@ def run_in_new_thread(fn):
             raise
 
         def report_failure(done):
-            if not done.cancelled():
-                failure = done.exception()
-                if failure is not None:
-                    _LOG.error("Callback failed: %s", type(failure).__name__)
+            if done.cancelled():
+                _SLOTS.release()
+                return
+            failure = done.exception()
+            if failure is not None:
+                _LOG.error("Callback failed: %s", type(failure).__name__)
 
         future.add_done_callback(report_failure)
         return future
