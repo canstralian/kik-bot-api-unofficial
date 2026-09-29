@@ -1,3 +1,8 @@
+import base64
+import binascii
+import re
+from types import MappingProxyType
+
 """
 Here we put all the device configuration that we emulate.
 """
@@ -14,4 +19,20 @@ kik_version_15_57_info = {"kik_version": "15.57.2.29235", "classes_dex_sha1_dige
 kik_version_15_60_info = {"kik_version": "15.60.1.29587", "classes_dex_sha1_digest": "FXxvP2QjSj+sXp+G1MqDdxz8Z51YjtqzFOQ7wlex0VM="}
 kik_version_17_0_info = {"kik_version": "17.0.0.31357", "classes_dex_sha1_digest": "Rm2No4v27p+pIF4DVwXJvXVvdds="}
 
-kik_version_info = kik_version_17_0_info
+def validate_kik_version_info(info):
+    """Validate profile shape; passing does not establish live Kik compatibility."""
+    version = info.get("kik_version") if hasattr(info, "get") else None
+    digest = info.get("classes_dex_sha1_digest") if hasattr(info, "get") else None
+    if not isinstance(version, str) or not re.fullmatch(r"\d+\.\d+\.\d+\.\d+", version):
+        raise ValueError("client version must have four numeric components")
+    try:
+        decoded = base64.b64decode(digest, validate=True)
+    except (TypeError, ValueError, binascii.Error) as exc:
+        raise ValueError("classes.dex SHA-1 must be valid base64") from exc
+    if len(decoded) != 20:
+        raise ValueError("classes.dex SHA-1 must decode to exactly 20 bytes")
+    return MappingProxyType({"kik_version": version, "classes_dex_sha1_digest": digest})
+
+
+# Historical compatibility profile, not proof of current service support.
+kik_version_info = validate_kik_version_info(kik_version_17_0_info)

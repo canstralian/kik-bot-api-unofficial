@@ -1,114 +1,47 @@
-# Kik Bot API #
-The Unofficial Kik Bot API is a Python library developed to automate interactions on [Kik Messenger](https://www.kik.com).
+# Kik Bot API (Unofficial) — maintained fork candidate
 
-It's essentially a way to create bots that behave like humans on the platform. This library enables your bot to interact with the official Kik app by emulating a real smartphone client. It communicates with Kik's servers at `talk1110an.kik.com:5223` over a modified version of the [XMPP](https://xmpp.org/about/technology-overview.html) protocol.
+Original project: [tomer8007/kik-bot-api-unofficial](https://github.com/tomer8007/kik-bot-api-unofficial). This fork keeps its MIT licence and attribution. It emulates a Kik client and is **not affiliated with Kik**. Modern Kik authentication and group messaging are **UNVERIFIED** until a separately authorised live smoke test succeeds. See upstream [#272](https://github.com/tomer8007/kik-bot-api-unofficial/issues/272) and [#264](https://github.com/tomer8007/kik-bot-api-unofficial/issues/264).
 
-This library is ideal for developers, hobbyists, and businesses who want to build automated bots to interact with users, groups, and other bots on Kik.
+## What this branch fixes
+- Structurally validated immutable client version/fingerprint and trusted `*.kik.com` endpoint override (no speculative server substitution).
+- Finite retry supervisor, classified DNS/TLS/timeout/protocol errors, server-requested backoff, terminal version rejection and explicit connection states.
+- Separate connect, stream, login and outbound deadlines, TLS certificate verification, cleaner transport shutdown and redacted protocol logging.
+- Bounded, ordered callbacks; HTTP media timeouts with observable upload completion; HTTP 200 treated as success.
+- Dependency metadata consolidation, corrected container install order, supported Python 3.10/3.11, non-root container and a credential-safe example.
+- Offline regression suite, installed-wheel CI and Spec Kit documentation.
 
-We do not endorse the use of this library for spamming or other malicious purposes. Please use this library responsibly.
-
-## Installation and dependencies ##
-Make sure you have Python 3.8 up to 3.11 installed on your system. You can install this library directly from GitHub:
+## Offline quickstart
+```sh
+git clone -b fix/connection-hardening-spec-kit https://github.com/canstralian/kik-bot-api-unofficial.git
+cd kik-bot-api-unofficial
+python3.11 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip build twine
+python -m pip install -e .
+python -m unittest discover -s tests -v
+python -m pip check
+python -m build --sdist --wheel
+python -m twine check dist/*
 ```
-git clone -b new https://github.com/tomer8007/kik-bot-api-unofficial
-pip3 install ./kik-bot-api-unofficial
+
+## Authorised live example (not a CI test)
+Copy `.env.example` to `.env` and provide only a dedicated test account's `BOT_USERNAME`/`BOT_PASSWORD`. Keep the file private and untracked. `KIK_HOST` is an optional explicitly verified Kik-owned DNS name; absent it, the historical version-derived hostname is used, which may no longer resolve. Never override TLS verification or guess verification/attestation material.
+
+```sh
+python examples/simple_echo_bot.py
+# Or build first, then run only after configuring a dedicated test account:
+docker compose build
+docker compose up
 ```
-## Quick Start Guide ##
-Here's a simple example of how to use the Kik Bot API:
 
-```python
-from kik_unofficial.client import KikClient
-from kik_unofficial.callbacks import KikClientCallback
-import kik_unofficial.datatypes.xmpp.chatting as chatting
-from kik_unofficial.datatypes.xmpp.errors import LoginError
+The example echoes private messages and group messages beginning with `!echo `. It does not offer automatic group moderation or LLM inference.
 
-# This bot class handles all the callbacks from the kik client
-class EchoBot(KikClientCallback):
-    def __init__(self):
-        # On initialization, the kik client will attempt to login to kik
-        self.client = KikClient(self, "your_kik_username", "your_kik_password", enable_console_logging=True)
-        self.client.wait_for_messages()
+## Interfaces and migration notes
+`KikClient(..., host=None, port=5223, connect_timeout=10, initial_response_timeout=15, login_response_timeout=20, message_wait_timeout=20)` adds optional constructor parameters. `wait_for_messages(max_retries=5)` is now the explicit finite retry supervisor; starting the client without calling it no longer implies recursive background retries. A bad-version response permanently terminates that client instance. The callback thread decorator now returns a `concurrent.futures.Future` (use `.result()` instead of `.join()`). Media helper functions return Futures, and chat-image sending waits for a confirmed upload result.
 
-    # This method is called when the bot receives a direct message from a user
-    def on_chat_message_received(self, chat_message: chatting.IncomingChatMessage):
-        self.client.send_chat_message(chat_message.from_jid, f'You said "{chat_message.body}"!')
-    
-    # This method is called if the login fails for any reason including requiring a captcha
-    def on_login_error(self, login_error: LoginError):
-        if login_error.is_captcha():
-            login_error.solve_captcha_wizard(self.client)
+## Documentation and gates
+- [Spec Kit constitution](.specify/memory/constitution.md) and [feature spec](specs/001-client-reliability/spec.md), [plan](specs/001-client-reliability/plan.md), [research](specs/001-client-reliability/research.md), [data model](specs/001-client-reliability/data-model.md), [tasks](specs/001-client-reliability/tasks.md), [quickstart](specs/001-client-reliability/quickstart.md).
+- [PRD](docs/PRD.md), [operations runbook](docs/runbooks/operations.md), [CLAUDE.md](CLAUDE.md), [Security policy](SECURITY.md), [Contributing](CONTRIBUTING.md).
+- No merge, tag, publish or compatibility claim until CI and separately consented live authentication/group messaging evidence are recorded.
 
-if __name__ == '__main__':
-    # Creates the bot and start listening for incoming chat messages
-    callback = EchoBot()
-        
-```
-Please replace "your_kik_username" and "your_kik_password" with your actual Kik username and password. You also have to add the bot as a friend on Kik before you can send it messages.
-
-You can find a similar example by running `python3 examples/simple_echo_bot.py`. Visit the [examples](examples) directory for more examples.
-
-## Features ##
-With the Kik Bot API, you can:
-
-- Log in with kik username and password, retrieve user information (such as email, name, etc).
-- Fetch chat partners information
-- Send text messages to users/groups and listen for incoming messages
-- Send and receive 'is-typing' status
-- Send and receive read receipts
-- Fetch group information (name, participants, etc.)
-- Fetch past message history
-- Administer groups (add, remove or ban members, etc)
-- Search for groups and join them (experimental feature)
-- Receive media content: camera, gallery, stickers
-- Add a kik user as a friend
-- Send images (including GIFs, using a [Tenor](https://developers.google.com/tenor/guides/quickstart) API key)
-
-Sending videos or recordings is not supported yet.
-
-## Captcha Solving ##
-Once the bot starts running, you might see a message like this:
-`To continue, complete the captcha in this URL using a browser: https://captcha.kik.com/?id=...`
-
-
-This means that Kik has detected that you are logging in using a new device and requires you to solve a captcha to continue. You can solve the captcha by opening the URL in a browser and following these steps:
-
-- Press F12 to open the developer tools
-- Open the network tab
-- Solve the captcha
-- Look for a file header that starts with `captcha-url?response=[your captcha response]`
-- Click on it and copy the response from the response tab
-- Paste the response in the terminal where the bot is running
-
-
-## Docker ##
-After creating a bot, you can bootstrap it to run in a Docker container. This section assumes you have [Docker](https://docs.docker.com/get-docker/) installed on your system.
-
-1. Set up your environment variables. Copy the example file to a new file called `.env`:
-    ```shell
-    cp .env.example .env
-    ```
-    <sub>**Note:** You will need to edit the new `.env` file to include your bot's device ID, android ID, username, password, and JID (if you know it).</sub>
-
-2. Update the [Dockerfile](Dockerfile) to copy your `bot.py` file into the container. Change the following line like so:
-   ```diff
-   - COPY examples/echo_bot.py /app/bot.py
-   + COPY path/to/your/bot.py /app/bot.py
-   ```
-   <sub>**Note:** You can also copy your bot's dependencies into the container by adding a `COPY` line for each dependency.</sub>
-
-3. Deploy the container:
-    ```shell
-    docker compose up --build -d && docker attach kik-bot-api-unofficial
-    ```
-    <sub>**Note**: You only need to use `--build` when you first clone the repo, or if you make changes to the code.</sub>
-
-## More functionality
-Before investigating the format of certain requests/responses, it's worth checking if they are already documented in the [Message Formats](https://github.com/tomer8007/kik-bot-api-unofficial/blob/new/docs/message_formats.md) page.
-
-## Troubleshooting
-If you are on Windows and you are unable to install the `lxml` package, use the binary installers from PyPi [here](https://pypi.python.org/pypi/lxml/3.3.5#downloads).
-
-If you are using [Termux](https://termux.com/), then use `pkg install libxml2 libxslt` to install `lxml` and `pkg install zlib libpng libjpeg-turbo` to install `pillow` dependencies.
-
-## Contact ##
-For any questions, suggestions, or discussions about the Kik Bot API, feel free to open an issue on the GitHub repository.
+The upstream documentation about original commands and protocol details remains available in the linked upstream project and [message formats](docs/message_formats.md).
