@@ -30,7 +30,7 @@ from kik_unofficial.datatypes.xmpp.base_elements import XMPPElement, XMPPRespons
 from kik_unofficial.http_requests import profile_pictures, content
 from kik_unofficial.utilities.credential_utilities import random_device_id, random_android_id
 from kik_unofficial.utilities.logging_utils import set_up_basic_logging
-from kik_unofficial.connection_policy import validate_endpoint, retry_delay, KikDisconnectedError
+from kik_unofficial.connection_policy import validate_endpoint, retry_delay, KikDisconnectedError, ConnectionState
 from kik_unofficial.device_configuration import validate_kik_version_info, kik_version_info
 
 HOST, PORT = CryptographicUtils.get_kik_host_name(), 5223
@@ -109,6 +109,7 @@ class KikClient:
         self._shutdown_event = Event()
         self._server_backoff_seconds = 0
         self._last_connection_failure = None
+        self.connection_state = ConnectionState.STOPPED
 
         self.callback = callback
         if self.callback:
@@ -140,6 +141,7 @@ class KikClient:
             return
         if getattr(self, "kik_connection_thread", None) and self.kik_connection_thread.is_alive():
             return
+        self.connection_state = ConnectionState.CONNECTING
         self.kik_connection_thread = Thread(target=self._kik_connection_thread_function, name="Kik Connection")
         self.kik_connection_thread.start()
 
@@ -155,10 +157,12 @@ class KikClient:
             if attempt == max_retries:
                 self.is_permanent_disconnection = True
                 self._shutdown_event.set()
+                self.connection_state = ConnectionState.TERMINAL
                 self.log.error("Connection retry budget exhausted.")
                 return
             delay = retry_delay(attempt + 1, server_backoff=self._server_backoff_seconds)
             self._server_backoff_seconds = 0
+            self.connection_state = ConnectionState.BACKOFF
             self.log.warning("Connection ended (%s); retry %d/%d in %.1fs",
                              self._last_connection_failure or "disconnected",
                              attempt + 1, max_retries, delay)
@@ -213,6 +217,7 @@ class KikClient:
         login_type = "email" if "@" in self.username else "username"
         self.log.info("Submitting login request (%s; credentials redacted).", login_type)
         self._auth_deadline = time.monotonic() + self.login_response_timeout
+        self.connection_state = ConnectionState.AUTHENTICATING
         return self._send_xmpp_element(login_request)
 
     def register(self, email: str, username: str, password: str, first_name: str, last_name: str, birthday: str, captcha_result: str = None):
@@ -731,6 +736,9 @@ class KikClient:
         self.is_permanent_disconnection = self.is_permanent_disconnection or permanent
         if self.is_permanent_disconnection:
             self._shutdown_event.set()
+            self.connection_state = ConnectionState.TERMINAL
+        elif not self.authenticated:
+            self.connection_state = ConnectionState.STOPPED
         if self.connection:
             self.log.info("Disconnecting.")
             if self.loop.is_running():
@@ -809,6 +817,7 @@ class KikClient:
 
         if connected:
             self.connected = True
+            self.connection_state = ConnectionState.STREAM_READY
 
             if "ts" in k_element.attrs:
                 # authenticated!
@@ -816,6 +825,8 @@ class KikClient:
 
                 self.log.info("Authenticated successfully.")
                 self.authenticated = True
+                self._auth_deadline = None
+                self.connection_state = ConnectionState.AUTHENTICATED
                 if not self.disable_auth_cert:
                     self.authenticator.send_stanza()
                 self.callback.on_authenticated()
@@ -836,9 +847,11 @@ class KikClient:
                 self.is_permanent_disconnection = True
                 self._shutdown_event.set()
                 self._last_connection_failure = "bad_version"
+                self.connection_state = ConnectionState.TERMINAL
             elif error.is_backoff:
                 self._server_backoff_seconds = max(0, error.backoff_seconds)
                 self._last_connection_failure = "server_backoff"
+                self.connection_state = ConnectionState.BACKOFF
                 self.log.warning("Server requested %ds backoff; honouring it.", self._server_backoff_seconds)
             self.callback.on_connection_failed(error)
         return connected
@@ -1035,6 +1048,8 @@ class KikConnection:
             self.api.connected = False
             self.api.authenticated = False
             self.api._auth_deadline = None
+            if not self.api.is_permanent_disconnection:
+                self.api.connection_state = ConnectionState.STOPPED
             if not self.is_closed:
                 self.log.warning("Connection unexpectedly lost")
             self.close()
