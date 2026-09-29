@@ -1,4 +1,4 @@
-# Feature 002 — Pure protocol conformance
+# Feature 003 — Pure protocol conformance
 
 ## User stories
 Maintainers can derive deterministic synthetic event records from historical message shapes without a Kik account. Bot builders can use validated, namespace-aware event categories rather than raw packets. Unknown or malformed input cannot produce an outbound action.
