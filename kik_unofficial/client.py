@@ -250,7 +250,7 @@ class KikClient:
         peer_jid = self.get_jid(peer_jid)
 
         chat_message = chatting.OutgoingChatMessage(peer_jid, message)
-        self.log.info(f"Sending chat message '{message}' to {'group' if chat_message.is_group else 'chat'} '{peer_jid}'...")
+        self.log.info("Sending chat message (body redacted).")
         return self._send_xmpp_element(chat_message)
 
     def send_chat_image(self, peer_jid: str, file, forward: bool = True):
@@ -681,7 +681,7 @@ class KikClient:
         :param stc_id: The stc_id from the CaptchaElement that was encountered
         :param captcha_result: The answer to the captcha (which was generated after solved by a human)
         """
-        self.log.info(f"Trying to solve a captcha with result: '{captcha_result}'")
+        self.log.info("Submitting captcha result (redacted).")
         return self._send_xmpp_element(login.CaptchaSolveRequest(stc_id, captcha_result))
 
     def get_my_profile(self):
@@ -923,7 +923,7 @@ class KikClient:
         elif message_type == "error":
             self.callback.on_error_message_received(chatting.IncomingErrorMessage(data))
         else:
-            self.log.warning(f"Received unknown XMPP element type: {data}")
+            self.log.warning("Received unknown XMPP element type: %s", getattr(data, "name", "unknown"))
 
     def _kik_connection_thread_function(self):
         """
