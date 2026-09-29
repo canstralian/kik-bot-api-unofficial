@@ -17,6 +17,7 @@ class SupervisorTests(unittest.TestCase):
         client.is_permanent_disconnection = False
         client._shutdown_event = Mock()
         client._shutdown_event.wait.return_value = False
+        client._shutdown_event.is_set.return_value = False
         client._server_backoff_seconds = 0
         client._last_connection_failure = "dns"
         client._reached_auth = False
