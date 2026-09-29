@@ -984,38 +984,70 @@ class KikConnection:
     # noinspection PyProtectedMember
     async def read_loop(self):
         try:
-            self.reader, self.writer = await asyncio.open_connection(host=HOST, port=PORT, ssl=ssl.create_default_context())
+            self.reader, self.writer = await asyncio.wait_for(
+                asyncio.open_connection(
+                    host=self.api.host, port=self.api.port,
+                    ssl=ssl.create_default_context(), server_hostname=self.api.host,
+                ),
+                timeout=self.api.connect_timeout,
+            )
             parser = KikXmlParser(self.reader, self.log)
 
             self.log.info("Connected.")
             self.api._on_connection_made()
 
-            k = await parser.read_initial_k()
-            self.log.debug("%s bind: %s", self.api.username, k)
+            k = await asyncio.wait_for(
+                parser.read_initial_k(), timeout=self.api.initial_response_timeout
+            )
+            self.log.debug("Initial connection response received (payload redacted).")
 
             if not self.api._handle_received_k_element(k):
                 self.close()
                 return
 
+            if not self.api.authenticated and self.api._auth_deadline is None:
+                self.api._auth_deadline = time.monotonic() + self.api.login_response_timeout
             while not self.is_closed:
-                stanza = await parser.read_next_stanza()
-                self.log.debug("Received: %s", stanza)
+                remaining = (max(0, self.api._auth_deadline - time.monotonic())
+                             if self.api._auth_deadline is not None and not self.api.authenticated else None)
+                stanza = await asyncio.wait_for(parser.read_next_stanza(), timeout=remaining)
+                self.log.debug("Received stanza (payload redacted).")
                 self.api.loop.call_soon_threadsafe(self.api._on_new_stanza_received, stanza)
-        except Exception:
-            self.log.warning("Received error in main loop: %s", traceback.format_exc())
+        except socket.gaierror as exc:
+            self.api._last_connection_failure = "dns"
+            self.log.warning("DNS resolution failed for %s: %s", self.api.host, exc)
+        except (ssl.SSLError, ssl.CertificateError) as exc:
+            self.api._last_connection_failure = "tls"
+            self.log.warning("TLS verification/handshake failed: %s", type(exc).__name__)
+        except (asyncio.TimeoutError, TimeoutError):
+            self.api._last_connection_failure = "timeout"
+            self.log.warning("Connection or authentication deadline exceeded.")
+        except (ConnectionError, OSError) as exc:
+            self.api._last_connection_failure = "transport"
+            self.log.warning("Transport failed: %s", type(exc).__name__)
+        except Exception as exc:
+            self.api._last_connection_failure = "protocol"
+            self.log.warning("Protocol processing failed: %s", type(exc).__name__)
         finally:
             self.api.connected = False
+            self.api.authenticated = False
+            self.api._auth_deadline = None
             if not self.is_closed:
                 self.log.warning("Connection unexpectedly lost")
             self.close()
+            if self.writer is not None:
+                try:
+                    await asyncio.wait_for(self.writer.wait_closed(), timeout=2.0)
+                except (OSError, asyncio.TimeoutError):
+                    self.log.debug("Transport shutdown was not confirmed.")
 
     def send_raw_data(self, data: bytes):
         if not self.writer:
-            self.log.error("Can't send raw data, writer not instantiated: %s", data)
+            raise KikDisconnectedError("writer not instantiated")
         elif self.writer.is_closing():
-            self.log.error("Can't send raw data, stream is closed or closing: %s", data)
+            raise KikDisconnectedError("writer is closed or closing")
         else:
-            self.log.debug("Sending raw data: %s", data)
+            self.log.debug("Sending outbound protocol payload (%d bytes; redacted).", len(data))
             self.writer.write(data)
 
     def close(self):
