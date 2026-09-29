@@ -49,5 +49,11 @@ F. Record UTC timestamps, redacted error category, selected version, independent
 ## 5. Incident and recovery
 If diagnostics captured secrets: stop test, restrict artifact/issue access, rotate affected account credentials and invalidate sessions as supported; scrub any public copy according to host policy. If service failures recur: stop supervisor; preserve redacted evidence; do not restart in an uncontrolled loop. If code regression: revert feature PR/commit; verify offline tests, then retest only with approval. Do not backport insecure alternate endpoints or attestation workarounds.
 
-## 6. Merge and release gates
+## 6. CI failure-mode notes
+- A pip-audit strict scan of the local fork itself fails because kik-unofficial 0.5.0 is not published to PyPI; the workflow excludes only that local distribution and strictly scans every resolved third-party package. Its build/wheel tests cover the local distribution.
+- The initial advisory scan reported 35 entries against Pillow 11.3.0; Pillow >=12.3.0,<13 is required and the matrix audit passed on code commit 9e47e968 (Actions run 36547685955).
+- A Docker build requires README and package source before invoking setup.py; CI now builds the Python 3.11 non-root image.
+- Code/config changes after a passing run require new evidence from the final head; never cite a prior passing commit as final-head validation.
+
+## 7. Merge and release gates
 Require PR review, unit and wheel/sdist checks, dependency advisory review, no known secret exposure, compatible client-profile provenance and independently witnessed authorised live login and group roundtrip. Repository-only CI is necessary but not sufficient. Do not tag/publish without a separate explicit release decision.
