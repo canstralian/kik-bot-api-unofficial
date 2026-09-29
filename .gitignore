@@ -106,3 +106,6 @@ ENV/
 .mypy_cache/
 
 .idea
+
+# Governed application local ledger
+bot_sessions.sqlite3*

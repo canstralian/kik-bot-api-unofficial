@@ -45,3 +45,14 @@ The example echoes private messages and group messages beginning with `!echo `. 
 - No merge, tag, publish or compatibility claim until CI and separately consented live authentication/group messaging evidence are recorded.
 
 The upstream documentation about original commands and protocol details remains available in the linked upstream project and [message formats](docs/message_formats.md).
+
+## Governed command application (optional, development-only)
+The separately layered `kik_bot` package has an opt-in group/PM policy, exact
+`!help`, `!settings` and `!ai` routing, SQLite duplicate/rate admission, a
+provider interface (AI deliberately disabled by default), and mocked adapter
+tests. It uses the hardened `KikClient` without changing transport APIs.
+See [governed bot guide](docs/governed-bot.md) and
+[feature specification](specs/002-governed-bot/spec.md).
+`python examples/governed_bot.py` will not connect without explicit
+`KIK_LIVE_ENABLED=1`, identity, and approved room/private scope. Offline
+tests do not establish live Kik compatibility or authorize group activity.
