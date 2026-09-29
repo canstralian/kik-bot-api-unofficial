@@ -1,0 +1,6 @@
+# Copy to examples/creds.yaml and replace values locally. Do not commit it.
+username: your_bot_username
+node: null
+password: CHANGE_ME
+device_id: CHANGE_ME_GENERATE_PER_BOT
+android_id: CHANGE_ME_GENERATE_PER_BOT
