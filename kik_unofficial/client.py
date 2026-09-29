@@ -733,9 +733,12 @@ class KikClient:
             self._shutdown_event.set()
         if self.connection:
             self.log.info("Disconnecting.")
-            self.connection.close()
+            if self.loop.is_running():
+                self.loop.call_soon_threadsafe(self.connection.close)
+            else:
+                self.connection.close()
         else:
-            self.log.error("Can't disconnect, no connection")
+            self.log.debug("Disconnect requested without an active connection.")
 
     # -----------------
     # Internal methods
