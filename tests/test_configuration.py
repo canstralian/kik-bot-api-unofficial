@@ -10,7 +10,7 @@ class ConfigurationTests(unittest.TestCase):
     def test_process_environment_overrides_local_dotenv(self):
         try:
             with patch.dict(os.environ, {"BOT_USERNAME": "process-authoritative"}), \
-                 patch.object(configuration, "dotenv_values", return_value={"BOT_USERNAME": "file"}):
+                 patch("dotenv.dotenv_values", return_value={"BOT_USERNAME": "file"}):
                 importlib.reload(configuration)
                 self.assertEqual(configuration.env["BOT_USERNAME"], "process-authoritative")
         finally:
