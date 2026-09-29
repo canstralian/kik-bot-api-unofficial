@@ -2,6 +2,8 @@
 
 Status: pre-release, live compatibility UNVERIFIED | Scope: authorised test accounts/groups only
 
+For current progress, credential-free DNS/TLS diagnostics and the remaining scoped-runner gate, see [live evidence handoff](live-evidence.md). Do not use the broad echo example as a scoped live-evidence test.
+
 ## 0. Preconditions and safeguards
 Obtain group-owner permission and a dedicated Kik test account. Never use real personal messages in logs/CI. Do not publish .env, credentials, node/device identifiers, password-derived passkeys, challenge responses, attestation tokens or unredacted XMPP. Do not weaken TLS verification or attempt to bypass Kik's verification controls. Current advertised 17.0 profile is historical.
 
