@@ -129,6 +129,8 @@ def normalize_stanza(data: bytes) -> ProtocolEvent:
             raise ProtocolError("invalid group destination")
     if message_type == "groupchat" and group is None:
         raise ProtocolError("group message missing valid group JID")
+    if message_type == "chat" and group is not None:
+        raise ProtocolError("direct message carries an unexpected group route")
     if message_type not in ("chat", "groupchat", "receipt", "is-typing"):
         raise ProtocolError("unsupported message type")
     conversation = group or sender
