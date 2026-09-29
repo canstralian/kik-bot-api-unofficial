@@ -1,0 +1,1 @@
+<message xmlns="jabber:client" type="is-typing" id="evt-005" from="alice_abc@talk.kik.com" to="bot_xyz@talk.kik.com"><is-typing val="true"/></message>
