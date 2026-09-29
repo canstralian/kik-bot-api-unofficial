@@ -69,7 +69,7 @@ class TransportTests(unittest.IsolatedAsyncioTestCase):
         api = SimpleNamespace(host="talk170an.kik.com", port=5223,
                               connect_timeout=1, connected=False, authenticated=False,
                               _auth_deadline=None, _last_connection_failure=None,
-                              log=Mock())
+                              is_permanent_disconnection=False, log=Mock())
         connection = KikConnection(api)
         with patch("kik_unofficial.client.asyncio.open_connection", side_effect=socket.gaierror(-2, "name lookup")):
             await connection.read_loop()
