@@ -45,7 +45,7 @@ setup(
         "bs4",
         "protobuf>=4.25.8,<6",
         "requests>=2.32.4,<3",
-        "pillow>=10.4,<12",
+        "pillow>=12.3.0,<13",
         "pyDes",
         "python-dotenv",
         "PyYAML>=6.0.2,<7",
