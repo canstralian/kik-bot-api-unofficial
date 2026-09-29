@@ -26,5 +26,8 @@ M1: repository remediation and documents. M2: CI and dependency advisory review.
 ## Risk register
 Service protocol drift: high external dependency, mitigated by explicit compatibility gate. Authentication controls: do not bypass; seek supported operation and document blocker. Privacy: dedicated test account, redacted logs, untracked secrets. Slow callbacks: finite serial queue with observable saturation. Legacy dependency maintenance: package-check plus advisory review. Scope creep: keep LLM integration separate until messaging roundtrip is proven.
 
+## Roadmap extension — separately deployable chatbot
+Retain the transport library as a provider-agnostic package and expose a pure event contract. The future governed bot application has its own command/mention router, provider adapters, SQLite inbox/outbox, redacted audit events, retention and rates. The default group reply requires an explicit opt-in trigger. Duplicate incoming events must not invoke a model twice. An ambiguous outbound send is UNCERTAIN until a properly correlated receipt resolves it; never promise exactly-once delivery. See docs/ROADMAP.md, docs/ARCHITECTURE.md and specs/002–005.
+
 ## Stakeholder decision
 Accepting a green code PR does not authorize tagging, production deployment or a statement that Kik login works. Those require distinct evidence and approval.
