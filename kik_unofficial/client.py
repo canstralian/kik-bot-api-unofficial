@@ -641,7 +641,7 @@ class KikClient:
         :param file: The path to the file OR its bytes OR an IOBase object to set
         """
         self.log.info(f"Changing profile picture for {self.username}")
-        profile_pictures.set_profile_picture(file, f"{self.kik_node}@talk.kik.com", self.username, self.password)
+        return profile_pictures.set_profile_picture(file, f"{self.kik_node}@talk.kik.com", self.username, self.password)
 
     def set_background_picture(self, file: Union[str, bytes, pathlib.Path, io.IOBase]):
         """
@@ -650,7 +650,7 @@ class KikClient:
         :param file: The path to the image file OR its bytes OR an IOBase object to set
         """
         self.log.info(f"Changing background picture for {self.username}")
-        profile_pictures.set_background_picture(file, f"{self.kik_node}@talk.kik.com", self.username, self.password)
+        return profile_pictures.set_background_picture(file, f"{self.kik_node}@talk.kik.com", self.username, self.password)
 
     def set_group_picture(self, file: Union[str, bytes, pathlib.Path, io.IOBase], group_jid: str, silent: bool = False):
         """
@@ -663,7 +663,7 @@ class KikClient:
         :param silent: If true, no status message is generated when the picture is changed
         """
         self.log.info(f"Changing group picture for {self.username} in {group_jid} (silent={silent})")
-        profile_pictures.set_group_picture(file, f"{self.kik_node}@talk.kik.com", group_jid, self.username, self.password, silent)
+        return profile_pictures.set_group_picture(file, f"{self.kik_node}@talk.kik.com", group_jid, self.username, self.password, silent)
 
     def send_ping(self):
         """
