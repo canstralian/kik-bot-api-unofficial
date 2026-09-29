@@ -11,7 +11,7 @@ This is an unofficial Kik transport library. Work from the Spec Kit constitution
 
 ## Additional staged feature scope
 - `kik_unofficial/protocol/events.py` is a pure, offline-testable adapter, not yet wired into the legacy live streaming parser. Do not claim live protocol conformance from synthetic tests.
-- `docs/ARCHITECTURE.md`, `docs/protocol-contracts.md`, `docs/security-model.md`, `docs/compatibility-matrix.md`, and `docs/ROADMAP.md` define the stage boundaries. Features 002–005 have separate specs.
+- `docs/ARCHITECTURE.md`, `docs/protocol-contracts.md`, `docs/security-model.md`, `docs/compatibility-matrix.md`, and `docs/ROADMAP.md` define the stage boundaries. Feature 002 is the sibling governed bot in PR #2; feature 003 is this protocol normalizer in PR #3; features 004–006 cover event processing, service compatibility and independent app extraction.
 - Add XML fixtures to `tests/fixtures/` using only synthetic JIDs, no authentic tokens or recorded personal messages. Maintain namespace, size, identifier and receipt negative tests.
 - Idempotent provider invocation and an outbox with UNCERTAIN submission state belong in a separate governed app/runtime. Do not claim exactly-once remote Kik delivery.
 
