@@ -100,6 +100,14 @@ class ProtocolFixtureTests(unittest.TestCase):
             with self.assertRaises(ProtocolError):
                 normalize_stanza(synthetic_message(extra, kind="groupchat"))
 
+    def test_direct_media_cannot_smuggle_group_destination(self):
+        payload = synthetic_message(
+            '<content app-id="com.kik.ext.gallery"/>'
+            + '<g jid="' + GROUP + '"/>'
+        )
+        with self.assertRaises(ProtocolError):
+            normalize_stanza(payload)
+
     def test_receipt_namespace_and_references_are_strict(self):
         for receipt in (
             '<receipt type="read"><msgid id="out-1"/></receipt>',
