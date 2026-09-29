@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 
 from bs4 import BeautifulSoup
 from kik_unofficial.client import KikClient, KikConnection
-from kik_unofficial.connection_policy import KikDisconnectedError
+from kik_unofficial.connection_policy import KikDisconnectedError, ConnectionState
 
 
 class SupervisorTests(unittest.TestCase):
@@ -19,6 +19,9 @@ class SupervisorTests(unittest.TestCase):
         client._shutdown_event.wait.return_value = False
         client._server_backoff_seconds = 0
         client._last_connection_failure = "dns"
+        client._reached_auth = False
+        client._planned_turnover = False
+        client.connection_state = ConnectionState.STOPPED
         client.log = Mock()
         client._connect = Mock()
         return client
@@ -30,6 +33,34 @@ class SupervisorTests(unittest.TestCase):
         self.assertEqual(client._connect.call_count, 2)
         self.assertTrue(client.is_permanent_disconnection)
         client._shutdown_event.set.assert_called_once()
+
+    def test_planned_authentication_turnover_does_not_consume_retry(self):
+        client = self.make_client()
+
+        def complete_attempt():
+            if client.kik_connection_thread.join.call_count == 1:
+                client._planned_turnover = True
+            else:
+                client.is_permanent_disconnection = True
+
+        client.kik_connection_thread.join.side_effect = complete_attempt
+        client.wait_for_messages(max_retries=0)
+        client._connect.assert_called_once()
+        client._shutdown_event.wait.assert_not_called()
+
+    def test_authenticated_session_resets_failure_budget(self):
+        client = self.make_client()
+        # A successful authenticated session between failed attempts resets
+        # consecutive failures; a cumulative exit counter would terminate sooner.
+        def complete_attempt():
+            n = client.kik_connection_thread.join.call_count
+            client._reached_auth = n == 2
+
+        client.kik_connection_thread.join.side_effect = complete_attempt
+        client.wait_for_messages(max_retries=1)
+        self.assertEqual(client.kik_connection_thread.join.call_count, 4)
+        self.assertEqual(client._connect.call_count, 3)
+        self.assertTrue(client.is_permanent_disconnection)
 
     def test_server_backoff_is_honoured(self):
         client = self.make_client()
