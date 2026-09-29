@@ -1,0 +1,3 @@
+# Feature 005 — Current-service compatibility (externally gated)
+
+Independently determine a legitimate supported client profile, genuine fingerprint provenance and current Kik third-party account/attestation requirements. Validate DNS, TLS with hostname verification, initial stream, login, authenticated acknowledgement, one permitted test-group message roundtrip and clean shutdown. Each step records a redacted timestamped receipt. No probing third-party endpoints or circumvention of challenge/device integrity controls. If access cannot be legitimately established, report BLOCKED and retain the offline-tested library without asserting live support.

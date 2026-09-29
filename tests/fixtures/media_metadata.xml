@@ -1,0 +1,1 @@
+<message xmlns="jabber:client" type="chat" id="evt-007" from="alice_abc@talk.kik.com" to="bot_xyz@talk.kik.com"><content app-id="com.kik.ext.gallery"><uri>https://example.invalid/synthetic-secret-not-to-return</uri></content></message>

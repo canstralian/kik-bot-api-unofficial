@@ -44,4 +44,9 @@ The example echoes private messages and group messages beginning with `!echo `. 
 - [PRD](docs/PRD.md), [operations runbook](docs/runbooks/operations.md), [CLAUDE.md](CLAUDE.md), [Security policy](SECURITY.md), [Contributing](CONTRIBUTING.md).
 - No merge, tag, publish or compatibility claim until CI and separately consented live authentication/group messaging evidence are recorded.
 
+## Protocol and governed bot work in review
+- [PR #2 — governed command app](https://github.com/canstralian/kik-bot-api-unofficial/pull/2) proposes opt-in `kik_bot` in this fork.
+- [PR #3 — synthetic protocol conformance](https://github.com/canstralian/kik-bot-api-unofficial/pull/3) adds a pure event normalizer and synthetic fixture tests under [feature 003](specs/003-protocol-conformance/spec.md).
+- See the [roadmap](docs/ROADMAP.md), [architecture](docs/ARCHITECTURE.md) and [compatibility matrix](docs/compatibility-matrix.md). Feature 006 is future standalone app extraction; neither PR proves live service compatibility.
+
 The upstream documentation about original commands and protocol details remains available in the linked upstream project and [message formats](docs/message_formats.md).

@@ -9,6 +9,12 @@ This is an unofficial Kik transport library. Work from the Spec Kit constitution
 - Packaging: `python -m pip check`, `python -m build --sdist --wheel`, `python -m twine check dist/*`, then installed-wheel import smoke test.
 - Historical Kik client profile does NOT establish current service support. Upstream #264/#272 contain contributor reports, not guaranteed current protocol facts.
 
+## Additional staged feature scope
+- `kik_unofficial/protocol/events.py` is a pure, offline-testable adapter, not yet wired into the legacy live streaming parser. Do not claim live protocol conformance from synthetic tests.
+- `docs/ARCHITECTURE.md`, `docs/protocol-contracts.md`, `docs/security-model.md`, `docs/compatibility-matrix.md`, and `docs/ROADMAP.md` define the stage boundaries. Feature 002 is the sibling governed bot in PR #2; feature 003 is this protocol normalizer in PR #3; features 004–006 cover event processing, service compatibility and independent app extraction.
+- Add XML fixtures to `tests/fixtures/` using only synthetic JIDs, no authentic tokens or recorded personal messages. Maintain namespace, size, identifier and receipt negative tests.
+- Idempotent provider invocation and an outbox with UNCERTAIN submission state belong in a separate governed app/runtime. Do not claim exactly-once remote Kik delivery.
+
 ## Mandatory engineering invariants
 1. No network or secret dependencies in ordinary tests; mock socket/HTTP and use synthetic identities.
 2. Fail closed on malformed profiles, non-Kik endpoint, explicit bad version, terminal shutdown and exhausted retry budget.

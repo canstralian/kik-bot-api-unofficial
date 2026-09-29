@@ -1,0 +1,5 @@
+# Troubleshooting
+
+First locate the failing layer: parse (ProtocolError), routing/permissions (DENIED), transport DNS/TLS/timeout, login (unsupported/verification failure), provider, outbox, or missing service receipt. A TCP connection is not authentication. A group ID must be a valid group JID, not just a string containing `groups.kik.com`.
+
+For malformed XML: inspect only synthetic repro or redacted metadata; never print raw user stanzas. For duplicate inbound IDs: inspect unique key scope (conversation, event ID); never call the model twice for the same accepted key. For a send with no receipt after connection interruption: mark UNCERTAIN and reconcile, do not automatically duplicate. For profile upload failure: inspect HTTP status class without credentials. For CI: `unittest discover -s tests -v`, wheel smoke outside checkout, strict third-party pip-audit, Docker build. Refer to docs/runbooks/operations.md for original network failure taxonomy and prior Pillow advisory remediation.

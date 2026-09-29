@@ -5,10 +5,16 @@ on:
     branches:
       - new
       - "fix/**"
+      - "feat/**"
   pull_request:
     branches:
       - new
+      - "fix/**"
   workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

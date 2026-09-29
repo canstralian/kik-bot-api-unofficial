@@ -1,0 +1,1 @@
+<message xmlns="jabber:client" type="receipt" id="evt-004" from="alice_abc@talk.kik.com" to="bot_xyz@talk.kik.com"><receipt xmlns="kik:message:receipt" type="read"><msgid id="outbound-001"/><msgid id="outbound-002"/></receipt><g jid="1100137485028_g@groups.kik.com"/></message>

@@ -1,0 +1,5 @@
+# Feature 006 — Separately deployed AI application extraction (planned)
+
+The sibling PR #2 already implements the initial governed kik_bot application layer within this fork. Extracting it into a separately deployed repository is a future, independently tested step. Define a transport adapter, command/mention router, policy engine, provider interface (hosted/Local/Dialogflow optional), bounded context retention, SQLite inbox/outbox and redacted operational events. Ordinary conversation never needs group-admin authority; LLM output cannot directly invoke privileged Kik operations. Simulate bot-author self-message, duplicate inbound message, rate exhaustion, wrong group route, provider timeout, disconnected transport and ambiguous send. Release requires simulated behaviour first and an authorised test-group roundtrip after transport compatibility is proven.
+
+Proposed extraction target repository: `canstralian/kik-ai-group-bot`; repository creation/deployment is a separate action. This spec does not claim that the repository already exists.
