@@ -1,4 +1,4 @@
-# Plan — 002
+# Plan — 003
 
 Implement `kik_unofficial/protocol/events.py` as a pure, schema-shaped normalizer using `defusedxml.ElementTree` and standard immutable dataclasses. Use existing JID validators for historical grammar; no account permissions or network calls in this module. Preserve original `kik_unofficial/parser/parser.py` during the fixture-first PR, then wire a validated event bridge in a subsequent change with backward-compatibility tests for callback behaviour.
 
