@@ -265,12 +265,13 @@ class KikClient:
         image = chatting.OutgoingChatImage(peer_jid, file, forward)
         self.log.info(f"Sending chat image to {'group' if image.is_group else 'user'} '{peer_jid}'...")
 
-        content.upload_gallery_image(
+        upload = content.upload_gallery_image(
             image,
             f"{self.kik_node}@talk.kik.com",
             self.username,
             self.password,
         )
+        upload.result(timeout=35)  # never announce media before verified upload
         return self._send_xmpp_element(image)
 
     def send_read_receipt(self, peer_jid: str, receipt_message_id: Union[str, list[str]], group_jid=None):
@@ -727,7 +728,9 @@ class KikClient:
 
         :permanent: if True, the client will not reconnect and future attempts to reconnect will fail.
         """
-        self.is_permanent_disconnection = True if self.is_permanent_disconnection else permanent
+        self.is_permanent_disconnection = self.is_permanent_disconnection or permanent
+        if self.is_permanent_disconnection:
+            self._shutdown_event.set()
         if self.connection:
             self.log.info("Disconnecting.")
             self.connection.close()
@@ -744,9 +747,16 @@ class KikClient:
         :param message: The XMPP element to send
         :return: The UUID of the element that was sent
         """
+        deadline = time.monotonic() + self.message_wait_timeout
         while not self.connected:
-            self.log.debug("Waiting for connection.")
-            time.sleep(0.5)  # Reduces console spam
+            if self.is_permanent_disconnection or self._shutdown_event.is_set():
+                raise KikDisconnectedError("client is permanently disconnected")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("connection not available before message deadline")
+            self._shutdown_event.wait(min(remaining, 0.1))
+        if not self.connection or self.connection.is_closed:
+            raise KikDisconnectedError("connection closed before send")
 
         packet = message.serialize()
         if not isinstance(packet, bytes):
@@ -815,14 +825,18 @@ class KikClient:
                 # Force a login attempt
                 self.log.warning(f"auth revoked for {self.kik_node}, falling back to login attempt")
                 self.kik_node = None
+                self.should_login_on_connection = True
             elif error.is_bad_version:
                 # Bad version
                 self.log.error(f"client received bad version error ({error.message}), shutting down.\n"
                                "Update the `kik_version_info` field in device_configuration.py to continue")
                 self.is_permanent_disconnection = True
+                self._shutdown_event.set()
+                self._last_connection_failure = "bad_version"
             elif error.is_backoff:
-                # Backoff requested
-                self.log.warning(f"backoff received for {error.backoff_seconds}s, ignoring")
+                self._server_backoff_seconds = max(0, error.backoff_seconds)
+                self._last_connection_failure = "server_backoff"
+                self.log.warning("Server requested %ds backoff; honouring it.", self._server_backoff_seconds)
             self.callback.on_connection_failed(error)
         return connected
 
@@ -913,24 +927,18 @@ class KikClient:
         The Kik Connection thread main function.
         Initiates the asyncio loop and actually connects.
         """
-        # If there is already a connection going, then wait for it to stop
-        if self.connection and not self.connection.is_closed:
-            self.connection.close()
-            self.log.debug("Waiting for the previous connection to stop.")
-            while not self.connection.is_closed:
-                self.log.debug("Still waiting for the previous connection to stop.")
-                time.sleep(1)
-
-        self.log.info("Initiating the Kik Connection thread and connecting to kik server...")
-
-        # create the connection and launch the asyncio loop
+        asyncio.set_event_loop(self.loop)
+        self.log.info("Initiating one bounded Kik connection attempt...")
+        self.connected = False
+        self.authenticated = False
+        self._last_connection_failure = None
         self.connection = KikConnection(self)
-        task = self.loop.create_task(self.connection.read_loop())
-
-        self.loop.run_until_complete(task)
-        self.log.debug("Main loop ended.")
-        self.callback.on_disconnected()
-        self._connect()
+        try:
+            self.loop.run_until_complete(self.connection.read_loop())
+        finally:
+            self.log.debug("Connection attempt ended.")
+            self.callback.on_disconnected()
+        # Only wait_for_messages supervises retries; never spawn recursively.
 
     def get_jid(self, username_or_jid):
         if jid_utilities.is_pm_jid(username_or_jid):
