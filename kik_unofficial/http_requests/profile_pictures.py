@@ -56,7 +56,14 @@ def picture_upload_thread(url: str, file: str or bytes or pathlib.Path or io.IOB
     max_retries = 3
 
     for retry_number in range(max_retries):
-        r = requests.post(url, data=picture_data, headers=headers, timeout=HTTP_TIMEOUT)
+        try:
+            r = requests.post(url, data=picture_data, headers=headers, timeout=HTTP_TIMEOUT)
+        except requests.RequestException as exc:
+            if retry_number == max_retries - 1:
+                raise
+            log.warning("Profile upload transport failure (%s), retry (%s/%s)",
+                        type(exc).__name__, retry_number + 1, max_retries)
+            continue
         if r.status_code == 200:
             log.debug("Uploading picture succeeded")
             return
