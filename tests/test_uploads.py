@@ -1,7 +1,8 @@
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
+from kik_unofficial.client import KikClient
 from kik_unofficial.datatypes.exceptions import KikUploadError
 from kik_unofficial.http_requests import profile_pictures, content
 
@@ -22,6 +23,20 @@ class UploadTests(unittest.TestCase):
             with self.assertRaises(KikUploadError):
                 profile_pictures.picture_upload_thread("https://profilepicsup.kik.com/profilepics", b"picture", {})
             self.assertEqual(post.call_count, 3)
+
+    def test_public_profile_api_returns_upload_future(self):
+        client = object.__new__(KikClient)
+        client.log = Mock()
+        client.kik_node = "test_node"
+        client.username = "test_user"
+        client.password = "synthetic"
+        expected = Mock()
+        with patch.object(profile_pictures, "set_profile_picture", return_value=expected):
+            self.assertIs(client.set_profile_picture(b"synthetic-image"), expected)
+        with patch.object(profile_pictures, "set_background_picture", return_value=expected):
+            self.assertIs(client.set_background_picture(b"synthetic-image"), expected)
+        with patch.object(profile_pictures, "set_group_picture", return_value=expected):
+            self.assertIs(client.set_group_picture(b"synthetic-image", "sample@groups.kik.com"), expected)
 
     def test_gallery_rejects_failure_with_timeout(self):
         response = SimpleNamespace(status_code=503, reason="Unavailable")
