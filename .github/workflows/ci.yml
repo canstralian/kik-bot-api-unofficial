@@ -32,6 +32,10 @@ jobs:
           python -m pip install .
       - name: Resolve dependency compatibility
         run: python -m pip check
+      - name: Dependency advisory audit (blocking)
+        run: |
+          python -m pip install "pip-audit>=2.9,<3"
+          python -m pip_audit --strict
       - name: Offline unit tests (no Kik credentials or live service)
         run: python -m unittest discover -s tests -v
       - name: Build distribution artifacts
