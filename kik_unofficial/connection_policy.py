@@ -1,5 +1,17 @@
 """Pure connection policy: deterministic retries and credential-safe endpoints."""
 import re
+from enum import Enum
+
+
+class ConnectionState(str, Enum):
+    STOPPED = "stopped"
+    CONNECTING = "connecting"
+    STREAM_READY = "stream_ready"
+    AUTHENTICATING = "authenticating"
+    AUTHENTICATED = "authenticated"
+    BACKOFF = "backoff"
+    TERMINAL = "terminal"
+
 
 
 class KikDisconnectedError(RuntimeError):
