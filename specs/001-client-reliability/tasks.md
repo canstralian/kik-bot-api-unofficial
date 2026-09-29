@@ -13,8 +13,8 @@ Task status describes repository edits, not a claim that CI or Kik service verif
 - [x] T009 Correct installation metadata, Docker install ordering, example credentials and configuration precedence.
 - [x] T010 Add offline unit tests and CI artifact verification workflow.
 - [x] T011 Produce constitution, spec, plan, research, data model, tasks, quickstart, PRD, runbook and CLAUDE.md.
-- [ ] T012 Confirm every final CI check passes on the final commit and inspect warnings.
-- [ ] T013 Run dependency advisory review and record resolution evidence.
+- [ ] T012 Confirm every final CI check passes on the final commit and inspect warnings. Evidence: code commit 9e47e968 passed both Python matrix jobs; final documentation head requires its own receipt.
+- [x] T013 Run dependency advisory review and record resolution evidence. Earlier scan identified Pillow 11.3.0 with 35 reported advisory entries; floor raised to 12.3.0, then both Python 3.10/3.11 third-party audits passed at 9e47e968. See Actions run 36547685955.
 - [ ] T014 Independently verify current client version, digest and compliant authentication path.
 - [ ] T015 Conduct authorised live test: DNS, TLS, stream, authentication, controlled group roundtrip and clean stop.
 - [ ] T016 Review and merge draft PR only after code gates; tag/publish separately only after release gate.
