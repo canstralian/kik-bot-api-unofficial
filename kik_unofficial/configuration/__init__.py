@@ -10,4 +10,4 @@ __all__ = ["env"]
 __dir_path = os.path.dirname(os.path.realpath(__file__))
 
 # Load the .env file
-env = {**dotenv_values(f"{__dir_path}/../../.env"), **os.environ}  # process environment takes precedence
+env = {**os.environ, **dotenv_values(f"{__dir_path}/../../.env")}

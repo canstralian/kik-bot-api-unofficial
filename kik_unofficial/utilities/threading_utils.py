@@ -1,47 +1,33 @@
-"""Bounded, ordered callback execution to avoid unbounded thread creation."""
-import logging
-from concurrent.futures import ThreadPoolExecutor
-from functools import wraps
-from threading import BoundedSemaphore
-
-_LOG = logging.getLogger(__name__)
-_POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="KikCallback")
-_SLOTS = BoundedSemaphore(64)
+import threading
 
 
 def run_in_new_thread(fn):
-    """Queue callbacks in submission order, returning a concurrent.futures.Future.
-
-    Compatibility note: legacy callers received threading.Thread. Call
-    Future.result() if completion or error reporting is needed.
-    """
-    @wraps(fn)
-    def run(*args, **kwargs):
-        if not _SLOTS.acquire(blocking=False):
-            raise RuntimeError("Kik callback queue saturated")
-
-        def invoke():
-            try:
-                return fn(*args, **kwargs)
-            finally:
-                _SLOTS.release()
-
-        try:
-            future = _POOL.submit(invoke)
-        except Exception:
-            _SLOTS.release()
-            raise
-
-        def report_failure(done):
-            if done.cancelled():
-                _SLOTS.release()
-                return
-            failure = done.exception()
-            if failure is not None:
-                _LOG.error("Callback failed: %s", type(failure).__name__)
-
-        future.add_done_callback(report_failure)
-        return future
+    def run(*k, **kw):
+        t = threading.Thread(target=fn, args=k, kwargs=kw)
+        t.start()
+        return t
 
     run.thread_decorated = True
     return run
+
+
+"""
+class RunInNewThreadDecorate(type):
+    def __new__(mcls, name, bases, attrs):
+        if name.startswith('None'):
+            return None
+
+        newattrs = attrs
+        if len(bases) > 0:
+            base_class = bases[0]
+            # Go over attributes and see if they should be renamed.
+            for attrname, attrvalue in attrs.items():
+                if attrname in dir(base_class):
+                    original_method = getattr(base_class, attrname)
+                    if hasattr(original_method, 'thread_decorated'):
+                        newattrs[attrname] = run_in_new_thread(attrvalue)
+                else:
+                    newattrs[attrname] = attrvalue
+
+        return super(RunInNewThreadDecorate, mcls).__new__(mcls, name, bases, newattrs)
+"""

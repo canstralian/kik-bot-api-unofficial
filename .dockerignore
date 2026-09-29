@@ -10,7 +10,3 @@ lib/
 # Environments
 venv/
 .env*
-creds.yaml
-examples/creds.yaml
-*.secrets.yaml
-.git

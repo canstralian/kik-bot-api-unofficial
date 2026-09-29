@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import requests
-from concurrent.futures import ThreadPoolExecutor
+from threading import Thread
 
 from kik_unofficial.datatypes.exceptions import KikUploadError
 from kik_unofficial.datatypes.xmpp.chatting import OutgoingChatImage
@@ -11,13 +11,11 @@ from kik_unofficial.device_configuration import kik_version_info
 
 log = logging.getLogger("kik_unofficial")
 SALT = "YA=57aSA!ztajE5"
-_UPLOAD_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="KikContent")
-HTTP_TIMEOUT = 20
 
 
 def upload_gallery_image(outgoing_chat_image: OutgoingChatImage, jid, username, password):
     url = f"https://platform.kik.com/content/files/{outgoing_chat_image.content_id}"
-    return send(url, outgoing_chat_image, jid, username, password)
+    send(url, outgoing_chat_image, jid, username, password)
 
 
 def send(url, image, jid, username, password):
@@ -47,11 +45,11 @@ def send(url, image, jid, username, password):
         "x-kik-content-extension": ".jpg",
     }
     # Sometimes Kik's servers throw 5xx when they're having issues, the new thread won't handle the exception
-    return _UPLOAD_EXECUTOR.submit(content_upload_thread, url, image.parsed["original"], headers)
+    Thread(target=content_upload_thread, args=(url, image.parsed["original"], headers), name="KikContent").start()
 
 
 def content_upload_thread(url, image, headers):
     log.debug("Uploading Image")
-    r = requests.put(url, data=image, headers=headers, timeout=HTTP_TIMEOUT)
+    r = requests.put(url, data=image, headers=headers)
     if r.status_code != 200:
         raise KikUploadError(r.status_code, r.reason)

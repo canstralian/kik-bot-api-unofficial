@@ -46,7 +46,7 @@ class XMPPChatMessageHandler(XmppHandler):
             mobile_remote_call = data.find("xiphias-mobileremote-call", recursive=False)
             log.warning(f"[!] Received mobile-remote-call with method '{mobile_remote_call['method']}' of service '{mobile_remote_call['service']}'")
         else:
-            log.debug("Received unknown chat message (payload redacted).")
+            log.debug(f"[-] Received unknown chat message. contents: {str(data)}")
 
     def handle_content(self, data: BeautifulSoup):
         content = data.find("content", recursive=False)
@@ -78,7 +78,7 @@ class XMPPGroupChatMessageHandler(XMPPChatMessageHandler):
         elif data.find("sysmsg", recursive=False):
             self.callback.on_group_sysmsg_received(chatting.IncomingGroupSysmsg(data))
         else:
-            log.debug("Received unknown group message (payload redacted).")
+            log.debug(f"[-] Received unknown group message. contents: {str(data)}")
 
 
 class HistoryHandler(XmppHandler):

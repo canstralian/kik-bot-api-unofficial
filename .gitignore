@@ -82,11 +82,6 @@ celerybeat-schedule
 # dotenv
 .env
 
-# Bot-specific credentials: templates only belong in git
-creds.yaml
-examples/creds.yaml
-*.secrets.yaml
-
 # virtualenv
 .venv
 venv/

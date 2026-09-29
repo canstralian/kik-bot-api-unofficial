@@ -18,7 +18,7 @@ class KikXmlParser:
     async def read_initial_k(self) -> BeautifulSoup:
         response = await self.reader.readuntil(separator=b">")
         if not response.startswith(b"<k "):
-            raise ValueError("unexpected initial stream response tag (payload redacted)")
+            raise ValueError("unexpected init stream response tag: " + response.decode("utf-8"))
         if b' ok="1"' in response or b"</k>" in response:
             return self._parse_from_bytes(response)
         else:

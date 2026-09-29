@@ -4,7 +4,7 @@ import io
 import logging
 import os
 import pathlib
-from concurrent.futures import ThreadPoolExecutor
+from threading import Thread
 from typing import Mapping
 
 import requests
@@ -16,35 +16,33 @@ from kik_unofficial.utilities.parsing_utilities import get_file_bytes
 log = logging.getLogger("kik_unofficial")
 
 BASE_URL = "https://profilepicsup.kik.com/profilepics"
-_UPLOAD_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="KikProfilePics")
-HTTP_TIMEOUT = 20
 
 
 def set_profile_picture(file: str or bytes or pathlib.Path or io.IOBase, jid: str, username: str, password: str):
-    return send(BASE_URL, file, jid, username, password)
+    send(BASE_URL, file, jid, username, password)
 
 
 def set_background_picture(file: str or bytes or pathlib.Path or io.IOBase, jid: str, username: str, password: str):
     url = f"{BASE_URL}?extension_type=BACKGROUND"
-    return send(url, file, jid, username, password)
+    send(url, file, jid, username, password)
 
 
 def set_group_picture(file: str or bytes or pathlib.Path or io.IOBase, user_jid: str, group_jid: str, username: str, password: str, silent: bool = False):
     url = f"{BASE_URL}?g={group_jid}"
     if silent:
         url += "&silent=1"
-    return send(url, file, user_jid, username, password)
+    send(url, file, user_jid, username, password)
 
 
 def send(url: str, file: str or bytes or pathlib.Path or io.IOBase, jid: str, username: str, password: str):
-    if isinstance(file, (str, pathlib.Path)) and not os.path.isfile(file):
+    if not os.path.isfile(file):
         raise KikApiException("File doesn't exist")
     headers = {
         "x-kik-jid": jid,
         "x-kik-password": CryptographicUtils.key_from_password(username, password),
         "User-Agent": f'Kik/{kik_version_info["kik_version"]} (Android 7.1.2) Dalvik/2.1.0 (Linux; U; Android 7.1.2; Nexus 7 Build/NJH47F)',
     }
-    return _UPLOAD_EXECUTOR.submit(picture_upload_thread, url, file, headers)
+    Thread(target=picture_upload_thread, args=(url, file, headers), name="KikProfilePics").start()
 
 
 def picture_upload_thread(url: str, file: str or bytes or pathlib.Path or io.IOBase, headers: Mapping[str, str | bytes]):
@@ -56,18 +54,12 @@ def picture_upload_thread(url: str, file: str or bytes or pathlib.Path or io.IOB
     max_retries = 3
 
     for retry_number in range(max_retries):
-        try:
-            r = requests.post(url, data=picture_data, headers=headers, timeout=HTTP_TIMEOUT)
-        except requests.RequestException as exc:
-            if retry_number == max_retries - 1:
-                raise
-            log.warning("Profile upload transport failure (%s), retry (%s/%s)",
-                        type(exc).__name__, retry_number + 1, max_retries)
-            continue
+        r = requests.post(url, data=picture_data, headers=headers)
         if r.status_code == 200:
+            if retry_number == max_retries - 1:
+                raise KikUploadError(r.status_code, r.reason)
+            else:
+                log.warning("Uploading picture failed with %s, executing retry (%s/%s)", r.status_code, retry_number + 1, max_retries)
+        else:
             log.debug("Uploading picture succeeded")
             return
-        if retry_number == max_retries - 1:
-            raise KikUploadError(r.status_code, r.reason)
-        log.warning("Uploading picture failed with HTTP %s, retry (%s/%s)",
-                    r.status_code, retry_number + 1, max_retries)

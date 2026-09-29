@@ -101,17 +101,12 @@ class CustomLogger:
         level_mapping = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
 
         self.logger.setLevel(level_mapping.get(log_level, logging.INFO))
-        for handler in list(self.logger.handlers):
-            if getattr(handler, "_kik_managed", False):
-                self.logger.removeHandler(handler)
-                handler.close()
 
         console_handler = logging.StreamHandler()
         console_handler.setLevel(level_mapping.get(log_level, logging.INFO))
 
         formatter = ColoredFormatter("%(message)s")
         console_handler.setFormatter(formatter)
-        console_handler._kik_managed = True
 
         if log_file_path:
             log_dir = os.path.dirname(log_file_path)
@@ -125,7 +120,6 @@ class CustomLogger:
 
             file_handler.setLevel(level_mapping.get(log_level, logging.INFO))
             file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s [%(thread)d/%(threadName)s]: %(message)s"))
-            file_handler._kik_managed = True
 
             self.logger.addHandler(file_handler)
 
