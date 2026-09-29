@@ -5,9 +5,11 @@ on:
     branches:
       - new
       - "fix/**"
+      - "feat/**"
   pull_request:
     branches:
       - new
+      - "fix/**"
   workflow_dispatch:
 
 permissions:
