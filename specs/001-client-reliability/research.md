@@ -10,6 +10,11 @@
 - Upstream #272: version rejection; DNS lookup failed for talk17100an.kik.com; a different hostname permitted TCP but authentication did not complete. https://github.com/tomer8007/kik-bot-api-unofficial/issues/272
 - Upstream #264: contributor described additional reCAPTCHA/Play Integrity/DeviceCheck requirements, with later VERIFICATION_FAILED reports. https://github.com/tomer8007/kik-bot-api-unofficial/issues/264
 
+## Validation observations (2026-09-29)
+- CI initially passed its regression and wheel checks on both supported Python versions at c3eb8322.
+- Adding a strict dependency scan initially failed because the local fork distribution was not published on PyPI. The scan now excludes only the local distribution while auditing installed third-party packages from a frozen requirements snapshot.
+- That scan surfaced 35 advisory entries against resolved Pillow 11.3.0. setup.py now requires Pillow >=12.3.0,<13; both Python matrix audits, tests and artifact checks passed on commit 9e47e968 (Actions run 36547685955). This does not substitute for scanning future locked deployment environments.
+
 ## Open unknowns
 - Currently supported Kik client profile and genuine APK digest.
 - Legitimate device verification mechanism and whether this third-party client can complete it.
